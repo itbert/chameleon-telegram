@@ -1,0 +1,32 @@
+[client]
+listen = "0.0.0.0:1080"
+bridge_addr = "bridge:443"
+server_pubkey_b64 = "<BRIDGE_PUBLIC_KEY>"
+transport = "raw"
+max_frame = 65535
+auth_psk_b64 = ""
+handshake_timeout_ms = 5000
+connect_timeout_ms = 8000
+relay_idle_timeout_ms = 60000
+shutdown_grace_ms = 5000
+web_ui_addr = "127.0.0.1:7777"
+web_ui_enabled = true
+web_ui_auth_token = ""
+
+[bridge]
+listen = "0.0.0.0:443"
+server_privkey_b64 = "<BRIDGE_PRIVATE_KEY>"
+transport = "raw"
+allow_all = false
+allow_cidrs = ["149.154.0.0/16", "91.108.4.0/22"]
+allow_domains = ["telegram.org", "t.me", "telegram.me"]
+max_frame = 65535
+auth_psk_b64 = ""
+require_auth = false
+handshake_timeout_ms = 5000
+target_connect_timeout_ms = 8000
+relay_idle_timeout_ms = 60000
+shutdown_grace_ms = 5000
+max_connections = 10000
+deny_private_targets = true
+allow_loopback_targets = false
