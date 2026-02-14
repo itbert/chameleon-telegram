@@ -1,0 +1,12 @@
+[package]
+name = "chameleon-client"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+chameleon-core = { path = "../chameleon-core" }
+tokio = { version = "1", features = ["net", "io-util", "rt-multi-thread", "macros", "signal"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+clap = { version = "4", features = ["derive"] }
