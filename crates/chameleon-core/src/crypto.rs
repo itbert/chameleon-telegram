@@ -73,9 +73,7 @@ pub fn generate_keypair_b64() -> Result<(String, String)> {
 }
 
 pub fn decode_key_b64(input: &str) -> Result<Vec<u8>> {
-    let bytes = B64
-        .decode(input.trim())
-        .map_err(|e| Error::Crypto(format!("base64 decode: {e}")))?;
+    let bytes = decode_b64(input)?;
     if bytes.len() != 32 {
         return Err(Error::Crypto(format!(
             "expected 32-byte key, got {}",
@@ -85,11 +83,29 @@ pub fn decode_key_b64(input: &str) -> Result<Vec<u8>> {
     Ok(bytes)
 }
 
+pub fn decode_optional_b64(input: &str) -> Result<Vec<u8>> {
+    if input.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+    decode_b64(input)
+}
+
+fn decode_b64(input: &str) -> Result<Vec<u8>> {
+    B64.decode(input.trim())
+        .map_err(|e| Error::Crypto(format!("base64 decode: {e}")))
+}
+
 pub async fn client_handshake<S: AsyncRead + AsyncWrite + Unpin>(
     stream: &mut S,
     server_pub: &[u8],
     max_frame: usize,
 ) -> Result<NoiseChannel> {
+    if server_pub.len() != 32 {
+        return Err(Error::Crypto(format!(
+            "server public key must be 32 bytes, got {}",
+            server_pub.len()
+        )));
+    }
     let params: NoiseParams = NOISE_PARAMS
         .parse()
         .map_err(|e| Error::Crypto(format!("noise params: {e}")))?;
@@ -97,9 +113,6 @@ pub async fn client_handshake<S: AsyncRead + AsyncWrite + Unpin>(
     let keypair = builder
         .generate_keypair()
         .map_err(|e| Error::Crypto(format!("keypair: {e}")))?;
-    let params: NoiseParams = NOISE_PARAMS
-        .parse()
-        .map_err(|e| Error::Crypto(format!("noise params: {e}")))?;
     let mut noise = Builder::new(params)
         .local_private_key(&keypair.private)
         .remote_public_key(server_pub)
@@ -130,6 +143,12 @@ pub async fn server_handshake<S: AsyncRead + AsyncWrite + Unpin>(
     server_priv: &[u8],
     max_frame: usize,
 ) -> Result<NoiseChannel> {
+    if server_priv.len() != 32 {
+        return Err(Error::Crypto(format!(
+            "server private key must be 32 bytes, got {}",
+            server_priv.len()
+        )));
+    }
     let params: NoiseParams = NOISE_PARAMS
         .parse()
         .map_err(|e| Error::Crypto(format!("noise params: {e}")))?;
