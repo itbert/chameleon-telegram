@@ -1,9 +1,10 @@
 use crate::error::{Error, Result};
 use crate::transport::TransportKind;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 use std::time::Duration;
+use std::{net::SocketAddr};
 
 fn default_max_frame() -> usize {
     65535
@@ -41,13 +42,21 @@ fn default_deny_private_targets() -> bool {
     true
 }
 
-#[derive(Debug, Clone, Deserialize)]
+fn default_web_ui_addr() -> String {
+    "127.0.0.1:7777".to_string()
+}
+
+fn default_web_ui_enabled() -> bool {
+    true
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct AppConfig {
     pub client: Option<ClientConfig>,
     pub bridge: Option<BridgeConfig>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ClientConfig {
     pub listen: String,
     pub bridge_addr: String,
@@ -66,9 +75,15 @@ pub struct ClientConfig {
     pub relay_idle_timeout_ms: u64,
     #[serde(default = "default_shutdown_grace_ms")]
     pub shutdown_grace_ms: u64,
+    #[serde(default = "default_web_ui_addr")]
+    pub web_ui_addr: String,
+    #[serde(default = "default_web_ui_enabled")]
+    pub web_ui_enabled: bool,
+    #[serde(default)]
+    pub web_ui_auth_token: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct BridgeConfig {
     pub listen: String,
     pub server_privkey_b64: String,
@@ -109,6 +124,21 @@ impl AppConfig {
             .map_err(|e| Error::Config(format!("toml parse error: {e}")))?;
         Ok(cfg)
     }
+
+    pub fn validate(&self) -> Result<()> {
+        if let Some(client) = &self.client {
+            client.validate()?;
+        }
+        if let Some(bridge) = &self.bridge {
+            bridge.validate()?;
+        }
+        Ok(())
+    }
+
+    pub fn to_toml(&self) -> Result<String> {
+        toml::to_string_pretty(self)
+            .map_err(|e| Error::Config(format!("toml serialize error: {e}")))
+    }
 }
 
 impl ClientConfig {
@@ -129,6 +159,7 @@ impl ClientConfig {
         validate_timeout_ms("client.connect_timeout_ms", self.connect_timeout_ms)?;
         validate_timeout_ms("client.relay_idle_timeout_ms", self.relay_idle_timeout_ms)?;
         validate_timeout_ms("client.shutdown_grace_ms", self.shutdown_grace_ms)?;
+        self.validate_web_ui()?;
         Ok(())
     }
 
@@ -146,6 +177,32 @@ impl ClientConfig {
 
     pub fn shutdown_grace(&self) -> Duration {
         Duration::from_millis(self.shutdown_grace_ms)
+    }
+
+    pub fn web_ui_socket_addr(&self) -> Result<SocketAddr> {
+        let addr: SocketAddr = self
+            .web_ui_addr
+            .parse()
+            .map_err(|e| Error::Config(format!("invalid web_ui_addr: {e}")))?;
+        if !addr.ip().is_loopback() {
+            return Err(Error::Config(
+                "web_ui_addr must be loopback (127.0.0.1 or ::1)".into(),
+            ));
+        }
+        Ok(addr)
+    }
+
+    fn validate_web_ui(&self) -> Result<()> {
+        if !self.web_ui_enabled {
+            return Ok(());
+        }
+        let _ = self.web_ui_socket_addr()?;
+        if self.web_ui_auth_token.len() > 512 {
+            return Err(Error::Config(
+                "client.web_ui_auth_token is too long".into(),
+            ));
+        }
+        Ok(())
     }
 }
 
