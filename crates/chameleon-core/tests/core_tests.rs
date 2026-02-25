@@ -283,6 +283,9 @@ max_frame = 65535
     assert_eq!(client.handshake_timeout_ms, 5000);
     assert_eq!(client.connect_timeout_ms, 8000);
     assert_eq!(client.relay_idle_timeout_ms, 60000);
+    assert_eq!(client.web_ui_addr, "127.0.0.1:7777");
+    assert!(client.web_ui_enabled);
+    assert!(client.web_ui_auth_token.is_empty());
     let bridge = load_bridge(&path).unwrap();
     assert_eq!(bridge.max_connections, 10000);
     assert!(bridge.deny_private_targets);
@@ -304,6 +307,23 @@ auth_psk_b64 = ""
     let path = std::env::temp_dir().join("chameleon-test-invalid.toml");
     fs::write(&path, invalid).unwrap();
     assert!(load_bridge(&path).is_err());
+}
+
+#[test]
+fn config_rejects_non_loopback_web_ui() {
+    let invalid = r#"
+[client]
+listen = "127.0.0.1:1080"
+bridge_addr = "127.0.0.1:443"
+server_pubkey_b64 = "AAAA"
+transport = "raw"
+max_frame = 65535
+web_ui_enabled = true
+web_ui_addr = "0.0.0.0:7777"
+"#;
+    let path = std::env::temp_dir().join("chameleon-test-webui.toml");
+    std::fs::write(&path, invalid).unwrap();
+    assert!(load_client(&path).is_err());
 }
 
 async fn spawn_mock_bridge(
