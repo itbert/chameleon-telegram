@@ -1,5 +1,7 @@
 # chameleon-telegram
 
+Telegram has been blocked since March 20, moving to a liberal Internet
+
 Linux-first reliable CLI tunnel with pluggable transport architecture.
 ## Components
 - `chameleon-core`: config, protocol, Noise crypto channel, allowlist policy, relay
